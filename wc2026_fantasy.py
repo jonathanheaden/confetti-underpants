@@ -455,11 +455,11 @@ def main():
 
     html = generate_html(scores, detail, matches)
 
-    out = "wc2026_fantasy.html"
+    out = "index.html"
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
 
-    print(f"\nWritten → {out}")
+    print(f"Written → {out}")
     print("\nStandings:")
     for player, pts in sorted(scores.items(), key=lambda x: (-x[1], x[0])):
         print(f"  {player:<18} {pts:>3} pts")
