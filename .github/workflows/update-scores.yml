@@ -1,0 +1,33 @@
+name: Update Scores
+
+on:
+  schedule:
+    - cron: '0 21 * * *'   # 5 pm EDT (UTC-4) — World Cup runs Jun–Jul 2026
+  workflow_dispatch:         # lets you trigger it manually anytime
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests
+
+      - run: python wc2026_fantasy.py
+
+      - run: cp wc2026_fantasy.html index.html
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html wc2026_fantasy.html
+          git diff --cached --quiet || git commit -m "scores: $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
