@@ -187,6 +187,10 @@ def _medal(rank: int) -> str:
     return {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, str(rank))
 
 
+def _slug(name: str) -> str:
+    return name.lower().replace(" ", "-").replace("'", "")
+
+
 def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
     sorted_players = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -210,7 +214,7 @@ def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
         rows.append(f"""
         <tr>
           <td class="rank{rank_css}">{_medal(rank)}</td>
-          <td class="player">{player}</td>
+          <td class="player"><a href="#{_slug(player)}" class="player-link">{player}</a></td>
           <td class="teams">{", ".join(teams)}</td>
           <td class="num">{played}</td>
           <td class="num">{wins}</td>
@@ -242,6 +246,46 @@ def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
         '<tr><td colspan="4" class="empty">No completed matches yet.</td></tr>'
 
     rows_html = "".join(rows)
+
+    # ── Per-player detail sections ────────────────────────────────────
+    player_sections = []
+    for player, _ in sorted_players:
+        slug = _slug(player)
+        events = sorted(detail.get(player, []), key=lambda e: e["date"])
+        if events:
+            erows = []
+            for e in events:
+                rcss = {"W": "res-win", "D": "res-draw", "L": "res-loss"}[e["result"]]
+                erows.append(f"""
+        <tr>
+          <td class="mdate">{e["date"]}</td>
+          <td class="mteam">{e["team"]}</td>
+          <td class="mscore">{e["gf"]} – {e["ga"]}</td>
+          <td class="mteam">{e["opponent"]}</td>
+          <td class="{rcss}">{e["result"]}</td>
+          <td class="pts">{e["points"]}</td>
+        </tr>""")
+            erows_html = "".join(erows)
+        else:
+            erows_html = '<tr><td colspan="6" class="empty">No matches played yet.</td></tr>'
+
+        player_sections.append(f"""
+  <div class="card" id="{slug}">
+    <div class="card-title">{player} <span class="card-sub">{scores.get(player, 0)} pts</span><a href="#top" class="back-link">↑ top</a></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Team</th><th style="text-align:center">Score</th>
+          <th>Opponent</th><th style="text-align:center">Result</th>
+          <th style="text-align:right;padding-right:18px">Pts</th>
+        </tr>
+      </thead>
+      <tbody>{erows_html}
+      </tbody>
+    </table>
+  </div>""")
+
+    player_sections_html = "".join(player_sections)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -329,6 +373,15 @@ def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
     .hl     {{ color: #f9a825; font-weight: 600; }}
     .empty  {{ text-align: center; padding: 20px; color: #3d5568; }}
 
+    .player-link {{ color: inherit; text-decoration: none; border-bottom: 1px dotted #5f7d94; }}
+    .player-link:hover {{ color: #f9a825; border-bottom-color: #f9a825; }}
+    .card-sub  {{ color: #7a93aa; font-weight: 400; font-size: .85rem; margin-left: 8px; }}
+    .back-link {{ float: right; color: #5f7d94; font-size: .8rem; font-weight: 400; text-decoration: none; }}
+    .back-link:hover {{ color: #f9a825; }}
+    .res-win  {{ text-align: center; font-weight: 700; color: #4caf50; }}
+    .res-draw {{ text-align: center; font-weight: 700; color: #f9a825; }}
+    .res-loss {{ text-align: center; font-weight: 700; color: #ef5350; }}
+
     .footer {{ text-align: center; color: #2e4459; font-size: .78rem; margin-top: 8px; }}
 
     @media (max-width: 600px) {{
@@ -338,7 +391,7 @@ def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
   </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="top">
   <h1>⚽ World Cup 2026 Fantasy League</h1>
   <p class="tagline">Win = 3 pts &nbsp;·&nbsp; Draw = 1 pt &nbsp;·&nbsp; Loss = 0 pts</p>
 
@@ -379,6 +432,8 @@ def generate_html(scores: dict, detail: dict, matches: list[dict]) -> str:
       </tbody>
     </table>
   </div>
+
+  {player_sections_html}
 
   <p class="footer">Last updated: {now}</p>
 </div>
